@@ -39,7 +39,6 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
-                hover_provider: Some(HoverProviderCapability::Simple(true)),
                 code_action_provider: Some(
                     tower_lsp::lsp_types::CodeActionProviderCapability::Options(
                         CodeActionOptions::default(),
@@ -70,13 +69,6 @@ impl LanguageServer for Backend {
         if let Some(body) = params.content_changes.into_iter().next() {
             *self.body.lock().await = body.text;
         }
-    }
-
-    async fn hover(&self, _: HoverParams) -> Result<Option<Hover>> {
-        Ok(Some(Hover {
-            contents: HoverContents::Scalar(MarkedString::String("You're hovering!".to_string())),
-            range: None,
-        }))
     }
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
