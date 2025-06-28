@@ -75,18 +75,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let body = self.body.lock().await.to_string();
 
-        // let body_lines: Vec<_> = body.lines().collect();
         let range = params.range;
-        // let last_line_length = body_lines[range.end.line as usize].len();
-        // let mut focus_on_lines =
-        //     body_lines[range.start.line as usize..(range.end.line + 1) as usize].to_vec();
-        // if focus_on_lines.last().is_some_and(|v| v.is_empty()) {
-        //     focus_on_lines.pop();
-        // }
-        // focus_on_lines.push("a very helpful suggestion: read the docs.");
-        // let reconstruct = focus_on_lines.join("\n");
-        // let body = &reconstruct[(range.start.character as usize)
-        //     ..(reconstruct.len() - last_line_length + range.end.character as usize)];
         let new_text = string_range_index(&body, range).to_string();
 
         let text_edit = TextEdit { range, new_text };
