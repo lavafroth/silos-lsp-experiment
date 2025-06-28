@@ -17,15 +17,15 @@ pub fn string_range_index(s: &str, r: Range) -> &str {
     let mut start = None;
     let mut end = None;
     for (i, c) in s.chars().enumerate() {
-        if c == '\n' {
-            newline_count += 1;
-        }
         if newline_count == r.start.line && start.is_none() {
-            start.replace(i + 1 + r.start.character as usize);
+            start.replace(i + r.start.character as usize);
         }
 
         if newline_count == r.end.line && end.is_none() {
-            end.replace(i + 1 + r.end.character as usize);
+            end.replace(i + r.end.character as usize);
+        }
+        if c == '\n' {
+            newline_count += 1;
         }
     }
     &s[start.unwrap_or_default()..end.unwrap_or(s.len())]
