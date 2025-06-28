@@ -62,12 +62,13 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        *self.body.lock().await = params.text_document.text.clone();
+        // TODO: build an index for multiple documents in workdir
+        *self.body.lock().await = params.text_document.text;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        if let Some(body) = params.content_changes.first() {
-            *self.body.lock().await = body.text.clone();
+        if let Some(body) = params.content_changes.into_iter().next() {
+            *self.body.lock().await = body.text;
         }
     }
 
