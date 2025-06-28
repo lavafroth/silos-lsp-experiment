@@ -1,0 +1,8 @@
+[package]
+name = "silos-lsp-experiment"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.45.1", features = ["io-std", "macros", "rt", "rt-multi-thread"] }
+tower-lsp = "0.20.0"

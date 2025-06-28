@@ -1,0 +1,113 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+use tower_lsp::jsonrpc::Result;
+use tower_lsp::lsp_types::*;
+use tower_lsp::{Client, LanguageServer, LspService, Server};
+
+#[derive(Debug)]
+struct Backend {
+    client: Client,
+    body: Arc<Mutex<String>>,
+}
+
+#[tower_lsp::async_trait]
+impl LanguageServer for Backend {
+    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+        Ok(InitializeResult {
+            capabilities: ServerCapabilities {
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
+                code_action_provider: Some(
+                    tower_lsp::lsp_types::CodeActionProviderCapability::Options(
+                        CodeActionOptions::default(),
+                    ),
+                ),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+    }
+
+    async fn initialized(&self, _: InitializedParams) {
+        self.client
+            .log_message(MessageType::INFO, "server initialized!")
+            .await;
+    }
+
+    async fn shutdown(&self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        *self.body.lock().await = params.text_document.text.clone();
+    }
+
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        if let Some(body) = params.content_changes.first() {
+            *self.body.lock().await = body.text.clone();
+        }
+    }
+
+    async fn hover(&self, _: HoverParams) -> Result<Option<Hover>> {
+        Ok(Some(Hover {
+            contents: HoverContents::Scalar(MarkedString::String("You're hovering!".to_string())),
+            range: None,
+        }))
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri;
+        let body = self.body.lock().await.to_string();
+
+        let body_lines: Vec<_> = body.lines().collect();
+        let range = params.range;
+        let last_line_length = body_lines[range.end.line as usize].len();
+        let mut focus_on_lines =
+            body_lines[range.start.line as usize..(range.end.line + 1) as usize].to_vec();
+        if focus_on_lines.last().is_some_and(|v| v.is_empty()) {
+            focus_on_lines.pop();
+        }
+        focus_on_lines.push("a very helpful suggestion: read the docs.");
+        let reconstruct = focus_on_lines.join("\n");
+        let body = &reconstruct[(range.start.character as usize)
+            ..(reconstruct.len() - last_line_length + range.end.character as usize)];
+
+        let text_edit = TextEdit {
+            range,
+            new_text: body.to_string(),
+        };
+        let changes: HashMap<Url, _> = [(uri, vec![text_edit])].into_iter().collect();
+        let edit = WorkspaceEdit {
+            changes: Some(changes),
+            document_changes: None,
+            change_annotations: None,
+        };
+        let actions = vec![CodeActionOrCommand::CodeAction(CodeAction {
+            title: "ask silos".to_string(),
+            kind: None,
+            diagnostics: None,
+            edit: Some(edit),
+            command: None,
+            is_preferred: None,
+            disabled: None,
+            data: None,
+        })];
+        Ok(Some(actions))
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
+
+    let (service, socket) = LspService::new(|client| Backend {
+        client,
+        body: Arc::new(Mutex::new(String::default())),
+    });
+    Server::new(stdin, stdout, socket).serve(service).await;
+}

@@ -1,0 +1,6 @@
+[language-server.silos]
+command = "/home/h/Public/silos-lsp-experiment/target/debug/silos-lsp-experiment"
+
+[[language]]
+name = "go"
+language-servers = [ { name = "silos" } ]
