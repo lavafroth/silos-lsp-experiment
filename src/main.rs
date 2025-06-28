@@ -12,6 +12,25 @@ struct Backend {
     body: Arc<Mutex<String>>,
 }
 
+pub fn string_range_index(s: &str, r: Range) -> &str {
+    let mut newline_count = 0;
+    let mut start = None;
+    let mut end = None;
+    for (i, c) in s.chars().enumerate() {
+        if c == '\n' {
+            newline_count += 1;
+        }
+        if newline_count == r.start.line && start.is_none() {
+            start.replace(i + 1 + r.start.character as usize);
+        }
+
+        if newline_count == r.end.line && end.is_none() {
+            end.replace(i + 1 + r.end.character as usize);
+        }
+    }
+    &s[start.unwrap_or_default()..end.unwrap_or(s.len())]
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
@@ -63,23 +82,21 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let body = self.body.lock().await.to_string();
 
-        let body_lines: Vec<_> = body.lines().collect();
+        // let body_lines: Vec<_> = body.lines().collect();
         let range = params.range;
-        let last_line_length = body_lines[range.end.line as usize].len();
-        let mut focus_on_lines =
-            body_lines[range.start.line as usize..(range.end.line + 1) as usize].to_vec();
-        if focus_on_lines.last().is_some_and(|v| v.is_empty()) {
-            focus_on_lines.pop();
-        }
-        focus_on_lines.push("a very helpful suggestion: read the docs.");
-        let reconstruct = focus_on_lines.join("\n");
-        let body = &reconstruct[(range.start.character as usize)
-            ..(reconstruct.len() - last_line_length + range.end.character as usize)];
+        // let last_line_length = body_lines[range.end.line as usize].len();
+        // let mut focus_on_lines =
+        //     body_lines[range.start.line as usize..(range.end.line + 1) as usize].to_vec();
+        // if focus_on_lines.last().is_some_and(|v| v.is_empty()) {
+        //     focus_on_lines.pop();
+        // }
+        // focus_on_lines.push("a very helpful suggestion: read the docs.");
+        // let reconstruct = focus_on_lines.join("\n");
+        // let body = &reconstruct[(range.start.character as usize)
+        //     ..(reconstruct.len() - last_line_length + range.end.character as usize)];
+        let new_text = string_range_index(&body, range).to_string();
 
-        let text_edit = TextEdit {
-            range,
-            new_text: body.to_string(),
-        };
+        let text_edit = TextEdit { range, new_text };
         let changes: HashMap<Url, _> = [(uri, vec![text_edit])].into_iter().collect();
         let edit = WorkspaceEdit {
             changes: Some(changes),
